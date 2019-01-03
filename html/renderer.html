@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+    <title>Synchrotunes</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../css/renderer.css">
+
+    <!-- JS -->
+    <script async src="../js/renderer.js"></script>
+  </head>
+  <body class="container-fluid">
+    <section id="section-init">
+      <div class="form-group row">
+        <div class="col-10">
+          <label for="iTunesLibPath">Path to iTunes Music Library</label>
+          <input type="text" class="form-control" id="iTunesLibPath" placeholder="Absolute path to iTunes Music Library.xml" value="">
+        </div>
+        <div class="col-2">
+          <button class="btn btn-secondary choose-path" data-subject="iTunesLibPath">Choose</button>
+        </div>
+      </div>
+
+      <div class="form-group row">
+        <div class="col-10">
+          <label for="targetPath">Target</label>
+          <input type="text" class="form-control" id="targetPath" placeholder="Absolute path to the target" value="">
+        </div>
+        <div class="col-2">
+          <button class="btn btn-secondary choose-path" data-subject="targetPath">Choose</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="bt-load">Load</button>
+    </section>
+
+    <section id="section-playlist">
+      <div class="form-group">
+        <label for="iTunesPlaylists">Playlists</label>
+        <select multiple class="form-control" id="iTunesPlaylists">
+        </select>
+      </div>
+
+      <button type="button" class="btn btn-secondary" id="bt-backToInit">Back</button>
+      <button type="button" class="btn btn-primary"   id="bt-analyze">Analyze</button>
+    </section>
+
+
+    <section id="section-analyze">
+      <button type="button" class="btn btn-secondary" id="bt-backToPlaylists">Back</button>
+      <button type="button" class="btn btn-primary"   id="bt-analyze">Sync</button>
+    </section>
+
+    <div id="loading-screen" class="hidden">
+      <h2 id="loading-title">Loading iTunes Library</h2>
+      <div class="spinner-border" role="status">
+        <span class="sr-only">Loading...</span>
+      </div>
+    </div>
+  </body>
+</html>

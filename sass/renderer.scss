@@ -1,0 +1,48 @@
+section {
+   margin: 10px 0;
+}
+
+#section-init>div {
+   /*display:         flex;
+   flex-wrap:       nowrap;
+   justify-content: space-between;
+   align-content:   stretch;*/
+   align-items:     flex-end;
+
+}
+
+#loading-screen {
+   position:        fixed;
+   top:             0;
+   bottom:          0;
+   left:            0;
+   right:           0;
+   background:      rgba(255,255,255,1);
+   display:         flex;
+   flex-wrap:       nowrap;
+   justify-content: center;
+   align-items:     center;
+   align-content:   center;
+}
+
+#loading-screen>* {
+   margin: 10px;
+}
+
+#loading-screen > .spinner-border {
+   $size: 1.5rem;
+   width:  $size;
+   height: $size;
+}
+
+#section-playlist {
+   display: none;
+}
+
+#iTunesPlaylists {
+   height: 200px;
+}
+
+#section-analyze {
+   display: none;
+}

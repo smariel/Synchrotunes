@@ -1,0 +1,36 @@
+{
+  "name": "Synchrotunes",
+  "version": "1.0.0",
+  "description": "A minimal Electron application",
+  "main": "main.js",
+  "esversion": 6,
+  "scripts": {
+    "start": "electron .",
+    "pack:osx": "electron-packager .  --out=dist --platform=darwin --arch=x64 --overwrite",
+    "pack:mas": "electron-packager .  --out=dist --platform=mas --arch=x64 --overwrite",
+    "pack:win32": "electron-packager .  --out=dist --platform=win32 --arch=ia32 --overwrite",
+    "pack:win64": "electron-packager .  --out=dist --platform=win32 --arch=x64 --overwrite",
+    "pack:lin32": "electron-packager .  --out=dist --platform=linux --arch=ia32 --overwrite",
+    "pack:lin64": "electron-packager .  --out=dist --platform=linux --arch=x64 --overwrite",
+    "pack:all": "electron-packager . --all --out=dist --overwrite"
+  },
+  "repository": "https://github.com/electron/electron-quick-start",
+  "keywords": [
+    "Electron",
+    "quick",
+    "start",
+    "tutorial",
+    "demo"
+  ],
+  "author": "GitHub",
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "electron": "^3.0.7",
+    "electron-packager": "^11.2.1"
+  },
+  "dependencies": {
+    "bootstrap": "^4.2.1",
+    "jquery": "^3.3.1",
+    "xml2js": "^0.4.19"
+  }
+}
