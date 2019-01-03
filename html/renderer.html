@@ -13,48 +13,60 @@
     <script async src="../js/renderer.js"></script>
   </head>
   <body class="container-fluid">
+
+    <!-- Section 1: INIT -->
     <section id="section-init">
       <div class="form-group row">
         <div class="col-10">
-          <label for="iTunesLibPath">Path to iTunes Music Library</label>
+          <label for="iTunesLibPath">Locate your iTunes Music Library</label>
           <input type="text" class="form-control" id="iTunesLibPath" placeholder="Absolute path to iTunes Music Library.xml" value="">
         </div>
         <div class="col-2">
           <button class="btn btn-secondary choose-path" data-subject="iTunesLibPath">Choose</button>
         </div>
       </div>
+      <button class="btn btn-primary" id="bt-load">Load</button>
+    </section>
+
+    <!-- Section 2: PLAYLIST SELECTION -->
+    <section id="section-playlist">
+      <div class="form-group">
+        <label for="iTunesPlaylists">Playlists to sync</label>
+        <select multiple class="form-control" id="iTunesPlaylists">
+        </select>
+      </div>
 
       <div class="form-group row">
         <div class="col-10">
-          <label for="targetPath">Target</label>
+          <label for="targetPath">Target folder</label>
           <input type="text" class="form-control" id="targetPath" placeholder="Absolute path to the target" value="">
         </div>
         <div class="col-2">
           <button class="btn btn-secondary choose-path" data-subject="targetPath">Choose</button>
         </div>
       </div>
-      <button class="btn btn-primary" id="bt-load">Load</button>
-    </section>
-
-    <section id="section-playlist">
-      <div class="form-group">
-        <label for="iTunesPlaylists">Playlists</label>
-        <select multiple class="form-control" id="iTunesPlaylists">
-        </select>
-      </div>
 
       <button type="button" class="btn btn-secondary" id="bt-backToInit">Back</button>
       <button type="button" class="btn btn-primary"   id="bt-analyze">Analyze</button>
     </section>
 
-
+    <!-- Section 1: ANALYZE REPORT -->
     <section id="section-analyze">
+      <h4>Analyze report</h4>
+      <div id="analyze-report"></div>
       <button type="button" class="btn btn-secondary" id="bt-backToPlaylists">Back</button>
-      <button type="button" class="btn btn-primary"   id="bt-analyze">Sync</button>
+      <button type="button" class="btn btn-primary"   id="bt-sync">Sync</button>
+    </section>
+
+    <!-- Section 1: SYNC RESULT -->
+    <section id="section-sync">
+      <p id="sync-report"></p>
+      <button type="button" class="btn btn-secondary" id="bt-backToPlaylists2">Back</button>
+      <button type="button" class="btn btn-secondary" id="bt-backToInit2">Restart</button>
     </section>
 
     <div id="loading-screen" class="hidden">
-      <h2 id="loading-title">Loading iTunes Library</h2>
+      <h2 id="loading-title"></h2>
       <div class="spinner-border" role="status">
         <span class="sr-only">Loading...</span>
       </div>

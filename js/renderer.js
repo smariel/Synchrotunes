@@ -1,23 +1,69 @@
 // Framworks and libraries
 window.$ = window.jQuery = require('jquery');
 const fs                 = require('fs');
+const fsPromises         = require('fs').promises;
+const path               = require('path');
 const xml2js             = require('xml2js');
 require('../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js');
 
-// return the data from the iTunes Music Library XML
-function get_iTunesLibData(iTunesLibPath) {
-  return new Promise(resolve => {
-    fs.readFile(iTunesLibPath, function(err, data) {
-      let parser = new xml2js.Parser();
-      parser.parseString(data, function (err, result) {
-        resolve(result);
-      });
-    });
-  });
+// init global app data
+let appData = {
+  iTunesPlaylists : [],
+  iTunesLibPath   : `${process.env.HOME}/Music/iTunes/iTunes Music Library.xml`,
+  targetPath      : `${process.env.HOME}/Downloads/Test`,
+  playlistsToSync : []
+};
+
+
+// set a path to the subject
+function setPath(subject) {
+  // init the dialog options according to the subject
+  let dialog_options = {};
+  if('iTunesLibPath' == subject) {
+    dialog_options = {
+      defaultPath : $('#iTunesLibPath').val(),
+      filters     : [{name: 'XML', extensions: ['xml']}],
+      properties  : ['openFile']
+    };
+  }
+  else if ('targetPath' == subject) {
+    dialog_options = {
+      defaultPath : $('#targetPath').val(),
+      properties  : ['openDirectory', 'createDirectory']
+    };
+  }
+
+  // open the dialog
+  const { dialog } = require('electron').remote;
+  let path = dialog.showOpenDialog(dialog_options);
+
+  // if the dialog was not canceled
+  if(path !== undefined) {
+    // copy the path to the input value
+    $(`#${subject}`).val(path[0]).removeClass('text-danger').removeClass('border-danger');
+  }
 }
 
-// return all playlists names and paths to the tracks
-function get_iTunesPlaylists(iTunesLib) {
+
+// check the given paths and load the iTunes playlists
+async function load() {
+  const {URL} = require('url');
+
+  // prepare a function returning a promise with the data from the iTunes Music Library XML
+  let get_iTunesLibData = (iTunesLibPath) => {
+    return new Promise(resolve => {
+      fs.readFile(iTunesLibPath, function(err, data) {
+        let parser = new xml2js.Parser();
+        parser.parseString(data, function (err, result) {
+          resolve(result);
+        });
+      });
+    });
+  };
+
+  // get the iTunes Music Library as a JS object
+  let iTunesLib = await get_iTunesLibData(appData.iTunesLibPath);
+
   // get the path of all tracks
   let tracks = [];
   for(let trackData of iTunesLib.plist.dict[0].dict[0].dict) {
@@ -25,7 +71,7 @@ function get_iTunesPlaylists(iTunesLib) {
   }
 
   // parse all playlists data
-  let playlists = [];
+  appData.iTunesPlaylists = [];
   for(let playlistData of iTunesLib.plist.dict[0].array[0].dict) {
     // if the playlist is empty, continue
     if(undefined === playlistData.array || playlistData.array.length < 1) continue;
@@ -35,165 +81,313 @@ function get_iTunesPlaylists(iTunesLib) {
     for(let trackData of playlistData.array[0].dict) {
       // get the path of the track
       let trackID = trackData.integer[0];
-      playlistTracks.push(tracks[trackID]);
+      // TODO: replace by url.fileURLToPath(url) when node >= 10.15.0 is available in Electron
+      let trackPath = decodeURIComponent(new URL(tracks[trackID]).pathname);
+      playlistTracks.push(trackPath);
     }
 
     // push the data of this playlist to the array
-    playlists.push({
+    appData.iTunesPlaylists.push({
       name   : playlistData.string[playlistData.string.length - 1],
       tracks : playlistTracks,
     });
   }
-
-  return playlists;
 }
+
+
+// analyze the selected playlists
+async function analyze(selectedPlaylists) {
+  // init
+  appData.playlistsToSync = [];
+
+  // for each playlist
+  for(let sel of selectedPlaylists) {
+    // keep a reference to this playlist somewhere
+    let playlist = appData.iTunesPlaylists[$(sel).val()];
+    appData.playlistsToSync.push(playlist);
+
+    // init the work to do
+    playlist.todo = {
+      dir      : `${appData.targetPath}/${playlist.name}`,
+      dirExist : false,
+      newTracks: [],
+      updTracks: [],
+      delFiles : [],
+      delDirs  : [],
+    };
+
+    // if a folder already exist for this playlist
+    if (fs.existsSync(playlist.todo.dir)) {
+      playlist.todo.dirExist = true;
+
+      // get the content of the target folder
+      let dirContent = await fsPromises.readdir(playlist.todo.dir);
+
+      // if the folder is empty
+      if(0 == dirContent.length) {
+        // set all the tracks to be copied
+        playlist.todo.newTracks = playlist.tracks;
+      }
+      else {
+        // STEP1/2 : check files or dir to delete
+        // for each content of the directory
+        for(let contentName of dirContent) {
+          // get stats on the content
+          let contentPath = `${playlist.todo.dir}/${contentName}`;
+          let contentStat = await fsPromises.stat(contentPath);
+          // if the content is a directory
+          if(contentStat.isDirectory()) {
+            // set the dir to be deleted
+            playlist.todo.delDirs.push(contentPath);
+          }
+          // else if the content is a file
+          else {
+            // for each track of the playlist
+            let trackExist = false;
+            for(let trackPath of playlist.tracks) {
+              let trackName = path.basename(trackPath);
+              // if the track is already in the dir
+              if(trackName == contentName) {
+                // TODO: manage dates
+                trackExist = true;
+                break;
+              }
+            }
+
+            // if the content is not a track of the playlist
+            if(!trackExist) {
+              // mark as deleted
+              playlist.todo.delFiles.push(contentPath);
+            }
+          }
+        }
+
+        // STEP2/2 : check tracks to add
+        // for each track of the playlist
+        for(let trackPath of playlist.tracks) {
+          let trackName = path.basename(trackPath);
+          let trackExist = false;
+          // for each content of the directory
+          for(let contentName of dirContent) {
+            // if the track is already in the dir
+            if(trackName == contentName) {
+              // dates are managed in the step 1
+              // ignore this track
+              trackExist = true;
+              break;
+            }
+          }
+
+          // if the track is not in the directory
+          if(!trackExist) {
+            // mark as to be added
+            playlist.todo.newTracks.push(trackPath);
+          }
+        }
+      }
+    }
+    else {
+      // set all the tracks to be copied
+      playlist.todo.newTracks = playlist.tracks;
+    }
+  }
+}
+
+
+// sync files according to the analyze
+async function sync() {
+  const del = require('del');
+
+  // init
+  let errors = [];
+
+  // for each playlist to sync
+  for(let playlist of appData.playlistsToSync) {
+    // if the directory does not exist, create it
+    if(!playlist.todo.dirExist) {
+      await fsPromises.mkdir(playlist.todo.dir).catch(err => {
+        errors.push(err);
+      });
+    }
+
+    // for each file do telete
+    for(let delFile of playlist.todo.delFiles) {
+      await fsPromises.unlink(delFile).catch(err => {
+        errors.push(err);
+      });
+    }
+
+    // for each directory do telete
+    for(let delDir of playlist.todo.delDirs) {
+      await del(delDir, {force: true}).catch(err => {
+        errors.push(err);
+      });
+    }
+
+    // for each track to add
+    for(let sourcePath of playlist.todo.newTracks) {
+      let destPath = `${playlist.todo.dir}/${path.basename(sourcePath)}`;
+      await fsPromises.copyFile(sourcePath, destPath).catch(err => {
+        errors.push(err);
+      });
+    }
+  }
+
+  return errors;
+}
+
 
 // When jQuery is ready
 $(() => {
-  // init app data
-  let iTunesPlaylists = [];
-  let iTunesLibPath   = `${process.env.HOME}/Music/iTunes/iTunes Music Library.xml`;
-  let targetPath      = `${process.env.HOME}/Desktop`;
-
   // init HTML
   $('#loading-screen').hide();
-  $('#iTunesLibPath' ).val(iTunesLibPath);
-  $('#targetPath'    ).val(targetPath);
+  $('#iTunesLibPath' ).val(appData.iTunesLibPath);
+  $('#targetPath'    ).val(appData.targetPath);
 
-  // EVENT: click to choose a path
+  // click to choose a path
   $('.choose-path').click((evt) => {
-    // get the subject
-    let subject = $(evt.target).data('subject');
-
-    // init the dialog options according to the subject
-    let dialog_options = {};
-    if('iTunesLibPath' == subject) {
-      dialog_options = {
-        defaultPath : $('#iTunesLibPath').val(),
-        filters     : [{name: 'XML', extensions: ['xml']}],
-        properties  : ['openFile']
-      };
-    }
-    else if ('targetPath' == subject) {
-      dialog_options = {
-        defaultPath : $('#targetPath').val(),
-        properties  : ['openDirectory']
-      };
-    }
-
-    // open the dialog
-    const { dialog } = require('electron').remote;
-    let path = dialog.showOpenDialog(dialog_options);
-
-    // if the dialog was not canceled
-    if(path !== undefined) {
-      // copy the path to the input value
-      $(`#${subject}`).val(path[0]);
-    }
+    setPath($(evt.target).data('subject'));
   });
 
-
-  // EVENT: click on the "load" button
-  $('#bt-load').click(async () => {
-    // check paths
+  // STEP1: load the iTunes lib
+  $('#bt-load').click(() => {
+    // check the path to the iTunes lib
     $('#iTunesLibPath').removeClass('text-danger').removeClass('border-danger');
-    $('#targetPath'   ).removeClass('text-danger').removeClass('border-danger');
-    let iTunesLibPath = $('#iTunesLibPath').val();
-    if (!fs.existsSync(iTunesLibPath)) {
+    appData.iTunesLibPath = $('#iTunesLibPath').val();
+    if (!fs.existsSync(appData.iTunesLibPath)) {
       $('#iTunesLibPath').addClass('text-danger').addClass('border-danger');
-      return;
-    }
-    if (!fs.existsSync($('#targetPath').val())) {
-      $('#targetPath').addClass('text-danger').addClass('border-danger');
       return;
     }
 
     // show a loading screen and prepare the next layout
+    $('#loading-title').text('Loading iTunes Library');
     $('#loading-screen'  ).show();
     $('#section-init'    ).hide();
     $('#section-playlist').show();
 
-    // get all the playlists from the iTunes Music Library
-    let iTunesLib = await get_iTunesLibData(iTunesLibPath);
-    iTunesPlaylists = get_iTunesPlaylists(iTunesLib);
+    // asynchronously load the iTunes lib, then...
+    load().then(() => {
+      // fill the form with the playlists names
+      $('#iTunesPlaylists').empty();
+      for(let i=0; i<appData.iTunesPlaylists.length; i++) {
+        $('#iTunesPlaylists').append(`<option value="${i}">${appData.iTunesPlaylists[i].name}</option>`);
+      }
 
-    // fill the form with the playlists names
-    for(let i=0; i<iTunesPlaylists.length; i++) {
-      $('#iTunesPlaylists').append(`<option value="${i}">${iTunesPlaylists[i].name}</option>`);
-    }
-
-    // hide the loading screen
-    $('#loading-screen').hide();
-
+      // hide the loading screen
+      $('#loading-screen').hide();
+    });
   });
 
-
-  // EVENT: analyse button clicked
+  // STEP2: analyse the sync
   $('#bt-analyze').click(() => {
+    // check the path to the target
+    $('#targetPath').removeClass('text-danger').removeClass('border-danger');
+    appData.targetPath = $('#targetPath').val();
+    if (!fs.existsSync(appData.targetPath)) {
+      $('#targetPath').addClass('text-danger').addClass('border-danger');
+      return;
+    }
+
     // get the playlists to sync
-    let selected = $('#iTunesPlaylists option:selected');
-    let playlistsToSync = [];
-    // for each playlist
-    for(let sel of selected) {
-      // keep a reference to this playlist somewhere
-      let playlist = iTunesPlaylists[$(sel).val()];
-      playlistsToSync.push(playlist);
+    let selectedPlaylists = $('#iTunesPlaylists option:selected');
+    if(selectedPlaylists.length > 0) {
+      $('#iTunesPlaylists').removeClass('border-danger');
+    }
+    else {
+      $('#iTunesPlaylists').addClass('border-danger');
+      return;
+    }
 
-      // init the work to do
-      playlist.todo = {
-        dir      : `${targetPath}/${playlist.name}`,
-        dirExist : false,
-        newTracks: [],
-        delTracks: []
-      };
+    // show the loading screen and prepare the next section
+    $('#loading-title'   ).text('Analyzing');
+    $('#loading-screen'  ).show();
+    $('#section-playlist').hide();
+    $('#section-analyze' ).show();
+    $('#analyze-report'  ).empty();
 
-      // if a folder already exist for this playlist
-      if (fs.existsSync(playlist.todo.dir)) {
-        playlist.todo.dirExist = true;
-
-        // get the content of the target folder
-        let dirFiles = fs.readdirSync(playlist.todo.dir);
-
-        // if the folder is empty
-        if(0 == dirFiles.length) {
-          // set all the tracks to be copied
-          playlist.todo.newTracks = playlist.tracks;
-        }
-        else {
-          // check if the file has to be deleted
-          for(let files of dirFiles) {
-            // TODO
+    // synchronously analyze
+    analyze(selectedPlaylists).then(() => {
+      // for each playlist to sync, display the analyze report
+      for(let playlist of appData.playlistsToSync) {
+        let analyzeReport = `<h5>${playlist.name}</h5>`;
+        analyzeReport += `<h6>Target directory ${(playlist.todo.dirExist)?'(existing)':'(to be created)'}</h6>`;
+        analyzeReport += `<ul><li>${playlist.todo.dir}</li></ul>`;
+        if(playlist.todo.newTracks.length > 0) {
+          analyzeReport += `<h6>${playlist.todo.newTracks.length} new tracks</h6><ul>`;
+          for(let newTrack of playlist.todo.newTracks) {
+            analyzeReport += `<li>${path.basename(newTrack)}</li>`;
           }
-
-          // check which file to copy {
-          for(let trackPath of playlist.tracks) {
-            // TODO
-          }
+          analyzeReport += '</ul>';
         }
+        if(playlist.todo.delFiles.length > 0) {
+          analyzeReport += `<h6>${playlist.todo.delFiles.length} files to delete</h6><ul>`;
+          for(let delFile of playlist.todo.delFiles) {
+            analyzeReport += `<li>${delFile}</li>`;
+          }
+          analyzeReport += '</ul>';
+        }
+        if(playlist.todo.delDirs.length > 0) {
+          analyzeReport += `<h6>${playlist.todo.delDirs.length} directories to delete</h6><ul>`;
+          for(let delDir of playlist.todo.delDirs) {
+            analyzeReport += `<li>${delDir}</li>`;
+          }
+          analyzeReport += '</ul>';
+        }
+        $('#analyze-report').append(analyzeReport);
+      }
+
+      // hide the loading screen
+      $('#loading-screen').hide();
+    });
+  });
+
+  // STEP3: sync
+  $('#bt-sync').click(() => {
+    // show the loading screen and prepare the next section
+    $('#loading-title'  ).text('Sync');
+    $('#loading-screen' ).show();
+    $('#section-analyze').hide();
+    $('#section-sync'   ).show();
+
+    // sync
+    sync().then(errors => {
+      // if there was errors, print them
+      if(errors.length > 0) {
+        $('#sync-report').html('Sync terminated with errors:<br />');
+        for(let error of errors) {
+          $('#sync-report').append(`${error}<br />`);
         }
       }
       else {
-        // set all the tracks to be copied
-        playlist.todo.newTracks = playlist.tracks;
+        $('#sync-report').text('Sync done!');
       }
 
-    }
-
+      // hide the loading screen
+      $('#loading-screen' ).hide();
+    });
   });
 
-
-  // EVENT: back button clicked
+  // back button clicked
   $('#bt-backToInit').click(() => {
     $('#section-playlist').hide();
     $('#section-init').show();
   });
 
-  // EVENT: back button clicked
+  // back button clicked
   $('#bt-backToPlaylists').click(() => {
     $('#section-analyze').hide();
     $('#section-playlist').show();
   });
 
+  // back button clicked
+  $('#bt-backToPlaylists2').click(() => {
+    $('#section-sync').hide();
+    $('#section-playlist').show();
+  });
 
-
+  // restart button clicked
+  $('#bt-backToInit2').click(() => {
+    $('#section-sync').hide();
+    $('#section-init').show();
+  });
 });
