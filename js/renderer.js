@@ -87,7 +87,14 @@ async function load() {
       let trackID = trackData.integer[0];
       let trackDirtyPath = tracks[trackID];
       if(null !== trackDirtyPath) {
-        let trackPath = url.fileURLToPath(tracks[trackID]);
+        let trackPath;
+        try {
+          trackPath = url.fileURLToPath(tracks[trackID]);
+        }
+        catch (err) {
+          console.error(err);
+          continue;
+        }
         playlistTracks.push(trackPath);
       }
     }
