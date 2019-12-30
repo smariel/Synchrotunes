@@ -45,12 +45,16 @@
           <button class="btn btn-secondary choose-path" data-subject="targetPath">Choose</button>
         </div>
       </div>
-
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="convert">
+        <label class="form-check-label" for="convert">Convert to MP3 192kbps</label>
+      </div>
+      <br />
       <button type="button" class="btn btn-secondary" id="bt-backToInit">Back</button>
       <button type="button" class="btn btn-primary"   id="bt-analyze">Analyze</button>
     </section>
 
-    <!-- Section 1: ANALYZE REPORT -->
+    <!-- Section 3: ANALYZE REPORT -->
     <section id="section-analyze">
       <h4>Analyze report</h4>
       <div id="analyze-report"></div>
@@ -58,7 +62,7 @@
       <button type="button" class="btn btn-primary"   id="bt-sync">Sync</button>
     </section>
 
-    <!-- Section 1: SYNC RESULT -->
+    <!-- Section 4: SYNC RESULT -->
     <section id="section-sync">
       <p id="sync-report"></p>
       <button type="button" class="btn btn-secondary" id="bt-backToPlaylists2">Back</button>

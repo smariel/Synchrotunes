@@ -4,14 +4,17 @@ const fs                 = require('fs');
 const fsPromises         = require('fs').promises;
 const path               = require('path');
 const xml2js             = require('xml2js');
+const util               = require('util');
+const exec               = util.promisify(require('child_process').exec);
 require('../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js');
 
 // init global app data
 let appData = {
   iTunesPlaylists : [],
   iTunesLibPath   : `${process.env.HOME}/Music/iTunes/iTunes Music Library.xml`,
-  targetPath      : `${process.env.HOME}/Downloads/Test`,
-  playlistsToSync : []
+  targetPath      : `${process.env.HOME}/Desktop`,
+  playlistsToSync : [],
+  convert         : false
 };
 
 
@@ -47,7 +50,7 @@ function setPath(subject) {
 
 // check the given paths and load the iTunes playlists
 async function load() {
-  const {URL} = require('url');
+  const url = require('url');
 
   // prepare a function returning a promise with the data from the iTunes Music Library XML
   let get_iTunesLibData = (iTunesLibPath) => {
@@ -65,9 +68,10 @@ async function load() {
   let iTunesLib = await get_iTunesLibData(appData.iTunesLibPath);
 
   // get the path of all tracks
+  // or get 'null' if the track is not a file
   let tracks = [];
   for(let trackData of iTunesLib.plist.dict[0].dict[0].dict) {
-    tracks[trackData.integer[0]] = trackData.string[trackData.string.length - 1];
+    tracks[trackData.integer[0]] = ('File' === trackData.string[1]) ? trackData.string[trackData.string.length - 1] : null;
   }
 
   // parse all playlists data
@@ -79,11 +83,13 @@ async function load() {
     // for each track in the playlist
     let playlistTracks = [];
     for(let trackData of playlistData.array[0].dict) {
-      // get the path of the track
+      // get the path of the track that are files (!== null)
       let trackID = trackData.integer[0];
-      // TODO: replace by url.fileURLToPath(url) when node >= 10.15.0 is available in Electron
-      let trackPath = decodeURIComponent(new URL(tracks[trackID]).pathname);
-      playlistTracks.push(trackPath);
+      let trackDirtyPath = tracks[trackID];
+      if(null !== trackDirtyPath) {
+        let trackPath = url.fileURLToPath(tracks[trackID]);
+        playlistTracks.push(trackPath);
+      }
     }
 
     // push the data of this playlist to the array
@@ -145,7 +151,7 @@ async function analyze(selectedPlaylists) {
             // for each track of the playlist
             let trackExist = false;
             for(let trackPath of playlist.tracks) {
-              let trackName = path.basename(trackPath);
+              let trackName = (appData.convert) ? path.basename(trackPath).replace(/\.[A-Za-z0-9]{2,4}$/, '.mp3') : path.basename(trackPath);
               // if the track is already in the dir
               if(trackName == contentName) {
                 // TODO: manage dates
@@ -165,11 +171,11 @@ async function analyze(selectedPlaylists) {
         // STEP2/2 : check tracks to add
         // for each track of the playlist
         for(let trackPath of playlist.tracks) {
-          let trackName = path.basename(trackPath);
+          let trackName = (appData.convert) ? path.basename(trackPath).replace(/\.[A-Za-z0-9]{2,4}$/, '.mp3') : path.basename(trackPath);
           let trackExist = false;
           // for each content of the directory
           for(let contentName of dirContent) {
-            // if the track is already in the dir
+            // if the track is already in the dir (ignore extension)
             if(trackName == contentName) {
               // dates are managed in the step 1
               // ignore this track
@@ -227,9 +233,24 @@ async function sync() {
     // for each track to add
     for(let sourcePath of playlist.todo.newTracks) {
       let destPath = `${playlist.todo.dir}/${path.basename(sourcePath)}`;
-      await fsPromises.copyFile(sourcePath, destPath).catch(err => {
-        errors.push(err);
-      });
+
+
+      // if the file has to be converted and is not an mp3
+      if(appData.convert && !/\.mp3$/.test(sourcePath)) {
+        // convert to mp3
+        try {
+          await exec(`ffmpeg -i "${sourcePath}" -y -vn -b:a 192k "${destPath.replace(/\.[a-zA-Z0-9]{2,4}$/, '.mp3')}"`);
+        }
+        catch(e) {
+          console.error(e);
+        }
+      }
+      else {
+        // copy the file to the destination
+        await fsPromises.copyFile(sourcePath, destPath).catch(err => {
+          errors.push(err);
+        });
+      }
     }
   }
 
@@ -280,6 +301,9 @@ $(() => {
 
   // STEP2: analyse the sync
   $('#bt-analyze').click(() => {
+    // check if files have to be converted
+    appData.convert = $('#convert').prop('checked');
+
     // check the path to the target
     $('#targetPath').removeClass('text-danger').removeClass('border-danger');
     appData.targetPath = $('#targetPath').val();

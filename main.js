@@ -11,7 +11,7 @@ let mainWindow;
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
   // Create the browser window.
-  mainWindow = new BrowserWindow({width: 800, height: 600});
+  mainWindow = new BrowserWindow({width: 800, height: 600, webPreferences: {nodeIntegration: true}});
 
   // and load the index.html of the app.
   mainWindow.loadFile('html/renderer.html');
