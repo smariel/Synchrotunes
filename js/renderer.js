@@ -14,7 +14,13 @@ let appData = {
   iTunesLibPath   : `${process.env.HOME}/Music/iTunes/iTunes Music Library.xml`,
   targetPath      : `${process.env.HOME}/Desktop`,
   playlistsToSync : [],
-  convert         : false
+  convert         : false,
+  operations      : {
+    newTracks: 0,
+    delFiles : 0,
+    delDirs  : 0,
+    total    : 0
+  }
 };
 
 
@@ -124,7 +130,6 @@ async function analyze(selectedPlaylists) {
       dir      : `${appData.targetPath}/${playlist.name}`,
       dirExist : false,
       newTracks: [],
-      updTracks: [],
       delFiles : [],
       delDirs  : [],
     };
@@ -203,18 +208,27 @@ async function analyze(selectedPlaylists) {
       // set all the tracks to be copied
       playlist.todo.newTracks = playlist.tracks;
     }
+
+    appData.operations.newTracks += playlist.todo.newTracks.length;
+    appData.operations.delDirs   += playlist.todo.delDirs.length;
+    appData.operations.delFiles  += playlist.todo.delFiles.length;
+    appData.operations.total     += appData.operations.newTracks + appData.operations.delDirs + appData.operations.delFiles;
   }
 }
 
 
 // sync files according to the analyze
 async function sync() {
+  let t_start = performance.now();
+
   const del = require('del');
 
   // init
   let errors = [];
 
   // for each playlist to sync
+  let i=0;
+  $('#loading-progress').attr('max',appData.operations.total);
   for(let playlist of appData.playlistsToSync) {
     // if the directory does not exist, create it
     if(!playlist.todo.dirExist) {
@@ -225,6 +239,7 @@ async function sync() {
 
     // for each file do telete
     for(let delFile of playlist.todo.delFiles) {
+      $('#loading-progress').attr('value',++i);
       await fsPromises.unlink(delFile).catch(err => {
         errors.push(err);
       });
@@ -232,6 +247,7 @@ async function sync() {
 
     // for each directory do telete
     for(let delDir of playlist.todo.delDirs) {
+      $('#loading-progress').attr('value',++i);
       await del(delDir, {force: true}).catch(err => {
         errors.push(err);
       });
@@ -239,6 +255,7 @@ async function sync() {
 
     // for each track to add
     for(let sourcePath of playlist.todo.newTracks) {
+      $('#loading-progress').attr('value',++i);
       let destPath = `${playlist.todo.dir}/${path.basename(sourcePath)}`;
 
 
@@ -260,6 +277,10 @@ async function sync() {
       }
     }
   }
+
+  let t_end = performance.now();
+  let sync_time = (t_end - t_start)/1000;
+  console.info(`Sync time: ${sync_time}s`); // eslint-disable-line no-console
 
   return errors;
 }
@@ -375,10 +396,11 @@ $(() => {
   // STEP3: sync
   $('#bt-sync').click(() => {
     // show the loading screen and prepare the next section
-    $('#loading-title'  ).text('Sync');
-    $('#loading-screen' ).show();
-    $('#section-analyze').hide();
-    $('#section-sync'   ).show();
+    $('#loading-title'   ).text('Sync');
+    $('#loading-progress').show();
+    $('#loading-screen'  ).show();
+    $('#section-analyze' ).hide();
+    $('#section-sync'    ).show();
 
     // sync
     sync().then(errors => {

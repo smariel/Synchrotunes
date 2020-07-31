@@ -23,17 +23,12 @@ section {
    background:      rgba(255,255,255,1);
    display:         flex;
    flex-wrap:       nowrap;
+   flex-direction:  column;
    justify-content: center;
    align-items:     center;
    align-content:   center;
 }
 
-#loading-screen>* {
-   margin: 10px;
-}
-
-#loading-screen > .spinner-border {
-   $size: 1.5rem;
-   width:  $size;
-   height: $size;
+#loading-progress {
+   display: none;
 }
