@@ -117,7 +117,11 @@ async function load() {
 // analyze the selected playlists
 async function analyze(selectedPlaylists) {
   // init
-  appData.playlistsToSync = [];
+  appData.playlistsToSync      = [];
+  appData.operations.newTracks = 0;
+  appData.operations.delFiles  = 0;
+  appData.operations.delDirs   = 0;
+  appData.operations.total     = 0;
 
   // for each playlist
   for(let sel of selectedPlaylists) {
@@ -310,6 +314,7 @@ $(() => {
 
     // show a loading screen and prepare the next layout
     $('#loading-title').text('Loading iTunes Library');
+    $('#loading-progress').hide();
     $('#loading-screen'  ).show();
     $('#section-init'    ).hide();
     $('#section-playlist').show();
@@ -352,6 +357,7 @@ $(() => {
 
     // show the loading screen and prepare the next section
     $('#loading-title'   ).text('Analyzing');
+    $('#loading-progress').hide();
     $('#loading-screen'  ).show();
     $('#section-playlist').hide();
     $('#section-analyze' ).show();
