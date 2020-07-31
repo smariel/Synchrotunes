@@ -360,33 +360,45 @@ $(() => {
     // synchronously analyze
     analyze(selectedPlaylists).then(() => {
       // for each playlist to sync, display the analyze report
+      let i=0;
+      let analyzeReport = `<ul>
+        <li>${appData.operations.newTracks} new tracks</li>
+        <li>${appData.operations.delFiles} files to remove</li>
+        <li>${appData.operations.delDirs} directories to remove</li>
+      </ul>`;
       for(let playlist of appData.playlistsToSync) {
-        let analyzeReport = `<h5>${playlist.name}</h5>`;
-        analyzeReport += `<h6>Target directory ${(playlist.todo.dirExist)?'(existing)':'(to be created)'}</h6>`;
-        analyzeReport += `<ul><li>${playlist.todo.dir}</li></ul>`;
+        analyzeReport += `<hr /><h5>${playlist.name}</h5>`;
+        analyzeReport += `<p>Target directory ${(playlist.todo.dirExist)?'(existing)':'(new)'}: ${playlist.todo.dir}</p>`;
+
         if(playlist.todo.newTracks.length > 0) {
-          analyzeReport += `<h6>${playlist.todo.newTracks.length} new tracks</h6><ul>`;
+          analyzeReport += `<h6 data-toggle="collapse" data-target="#collapse${++i}">${playlist.todo.newTracks.length} new tracks</h6>`;
+          analyzeReport += `<ul id="collapse${i}" class="collapse hide">`;
           for(let newTrack of playlist.todo.newTracks) {
             analyzeReport += `<li>${path.basename(newTrack)}</li>`;
           }
           analyzeReport += '</ul>';
         }
+
         if(playlist.todo.delFiles.length > 0) {
-          analyzeReport += `<h6>${playlist.todo.delFiles.length} files to delete</h6><ul>`;
+          analyzeReport += `<h6 data-toggle="collapse" data-target="#collapse${++i}">${playlist.todo.delFiles.length} files to delete</h6>`;
+          analyzeReport += `<ul id="collapse${i}" class="collapse hide">`;
           for(let delFile of playlist.todo.delFiles) {
             analyzeReport += `<li>${delFile}</li>`;
           }
           analyzeReport += '</ul>';
         }
+
         if(playlist.todo.delDirs.length > 0) {
-          analyzeReport += `<h6>${playlist.todo.delDirs.length} directories to delete</h6><ul>`;
+          analyzeReport += `<h6 data-toggle="collapse" data-target="#collapse${++i}">${playlist.todo.delDirs.length} directories to delete</h6>`;
+          analyzeReport += `<ul id="collapse${i}" class="collapse hide">`;
           for(let delDir of playlist.todo.delDirs) {
             analyzeReport += `<li>${delDir}</li>`;
           }
           analyzeReport += '</ul>';
         }
-        $('#analyze-report').append(analyzeReport);
       }
+
+      $('#analyze-report').append(analyzeReport);
 
       // hide the loading screen
       $('#loading-screen').hide();
