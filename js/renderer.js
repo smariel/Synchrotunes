@@ -170,7 +170,7 @@ async function analyze(selectedPlaylists) {
               let trackName = (appData.convert) ? path.basename(trackPath).replace(/\.[A-Za-z0-9]{2,4}$/, '.mp3') : path.basename(trackPath);
               // if the track is already in the dir
               // (normalize to unicode to avoid charcode problems with external devices)
-              if(trackName == contentName.normalize()) {
+              if(trackName.normalize() == contentName.normalize()) {
                 // TODO: manage dates
                 trackExist = true;
                 break;
@@ -194,7 +194,7 @@ async function analyze(selectedPlaylists) {
           for(let contentName of dirContent) {
             // if the track is already in the dir (ignore extension)
             // (normalize to unicode to avoid charcode problems with external devices)
-            if(trackName == contentName.normalize()) {
+            if(trackName.normalize() == contentName.normalize()) {
               // dates are managed in the step 1
               // ignore this track
               trackExist = true;
